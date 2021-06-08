@@ -11,9 +11,9 @@ uses
 
 type
 
-  { MyLaunguage }
+  { Interpreter }
 
-  MyLaunguage = class(TCustomApplication)
+  Interpreter = class(TCustomApplication)
   protected
     procedure DoRun; override;
   public
@@ -22,9 +22,9 @@ type
     procedure WriteHelp; virtual;
   end;
 
-{ MyLaunguage }
+{ Console }
 
-procedure MyLaunguage.DoRun;
+procedure Interpreter.DoRun;
 var
   ErrorMsg: String;
   text: String;
@@ -60,27 +60,27 @@ begin
   Terminate;
 end;
 
-constructor MyLaunguage.Create(TheOwner: TComponent);
+constructor Interpreter.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
   StopOnException:=True;
 end;
 
-destructor MyLaunguage.Destroy;
+destructor Interpreter.Destroy;
 begin
   inherited Destroy;
 end;
 
-procedure MyLaunguage.WriteHelp;
+procedure Interpreter.WriteHelp;
 begin
   { add your help code here }
   writeln('Usage: ', ExeName, ' -h');
 end;
 
 var
-  Application: MyLaunguage;
+  Application: Interpreter;
 begin
-  Application:=MyLaunguage.Create(nil);
+  Application:=Interpreter.Create(nil);
   Application.Title:='My Language';
   Application.Run;
   Application.Free;
