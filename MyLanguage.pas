@@ -6,14 +6,14 @@ uses
   {$IFDEF UNIX}{$IFDEF UseCThreads}
   cthreads,
   {$ENDIF}{$ENDIF}
-  Classes, SysUtils, CustApp, Basic, Parser
+  Classes, SysUtils, CustApp, Basic, Interpreter
   { you can add units after this };
 
 type
 
-  { Interpreter }
+  { Console }
 
-  Interpreter = class(TCustomApplication)
+  Console = class(TCustomApplication)
   protected
     procedure DoRun; override;
   public
@@ -24,11 +24,11 @@ type
 
 { Console }
 
-procedure Interpreter.DoRun;
+procedure Console.DoRun;
 var
   ErrorMsg: String;
   text: String;
-  result: TParseResult;
+  result: TNumberResult;
 begin
   // quick check parameters
   ErrorMsg:=CheckOptions('h', 'help');
@@ -48,39 +48,45 @@ begin
   while true do begin
     write('basic> '); readln(text);
     if text = 'exit' then break;
-    result := runcode(text);
+    result := RunCode(text);
     if result.error <> nil then
        WriteLn(result.error.AsStr())
     else begin
-      WriteLn(result.node.Repr());
+      WriteLn(result.num.Repr());
     end;
   end;
+
+  {result := RunCode('1 + 1.');
+  if result.error <> nil then
+    WriteLn(result.error.AsStr())
+  else
+    WriteLn(result.num.Repr());}
 
   // stop program loop
   Terminate;
 end;
 
-constructor Interpreter.Create(TheOwner: TComponent);
+constructor Console.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
   StopOnException:=True;
 end;
 
-destructor Interpreter.Destroy;
+destructor Console.Destroy;
 begin
   inherited Destroy;
 end;
 
-procedure Interpreter.WriteHelp;
+procedure Console.WriteHelp;
 begin
   { add your help code here }
   writeln('Usage: ', ExeName, ' -h');
 end;
 
 var
-  Application: Interpreter;
+  Application: Console;
 begin
-  Application:=Interpreter.Create(nil);
+  Application:=Console.Create(nil);
   Application.Title:='My Language';
   Application.Run;
   Application.Free;

@@ -5,10 +5,10 @@ unit Token;
 interface
 
 uses
-  Classes, SysUtils, LangErrors;
+  Classes, SysUtils, LangErrors, Position;
 
 type
-  TTokenKind = (TT_INT, TT_STR, TT_BOOL, TT_FLOAT, TT_PLUS, TT_MINUS, TT_DIV, TT_MUL, TT_LPAREN, TT_RPAREN);
+  TTokenKind = (TT_INT, TT_STR, TT_BOOL, TT_FLOAT, TT_PLUS, TT_MINUS, TT_DIV, TT_MUL, TT_LPAREN, TT_RPAREN, TT_EOF);
   TTokenKindArray = array of TTokenKind;
 
   TToken = class
@@ -18,12 +18,13 @@ type
       // strv: string;
       boolv: Boolean;
       floatv: Real;
+      pos: TPosition;
 
     public
-      constructor Create(k: TTokenKind);
-      constructor CreateInt(x: Integer);
-      constructor CreateBool(x: Boolean);
-      constructor CreateFloat(x: Real);
+      constructor Create(p: TPosition; k: TTokenKind);
+      constructor CreateInt(p: TPosition; x: Integer);
+      constructor CreateBool(p: TPosition; x: Boolean);
+      constructor CreateFloat(p: TPosition; x: Real);
       function IsInt(): Boolean;
       // function isStr(): boolean;
       function IsBool(): Boolean;
@@ -34,6 +35,7 @@ type
       function IsDiv(): Boolean;
       function IsLParen(): Boolean;
       function IsRParen(): Boolean;
+      function IsEOF(): Boolean;
       function IsOfKind(kinds: TTokenKindArray): Boolean;
       procedure SetInt(x: Integer);
       // procedure setStr(x: string);
@@ -43,6 +45,7 @@ type
       // function getStr(): integer;
       function GetBool(): Boolean;
       function GetFloat(): Real;
+      function GetPosition(): TPosition;
       function Repr(): String;
   end;
 
@@ -54,18 +57,22 @@ type
   end;
 
 implementation
-constructor TToken.Create(k: TTokenKind); begin
+constructor TToken.Create(p: TPosition; k: TTokenKind); begin
+  pos := p;
   kind := k;
 end;
-constructor TToken.CreateInt(x: integer); begin
+constructor TToken.CreateInt(p: TPosition; x: integer); begin
+  pos := p;
   kind := TT_INT;
   intv := x;
 end;
-constructor TToken.CreateBool(x: boolean); begin
+constructor TToken.CreateBool(p: TPosition; x: boolean); begin
+  pos := p;
   kind := TT_BOOL;
   boolv := x;
 end;
-constructor TToken.CreateFloat(x: real); begin
+constructor TToken.CreateFloat(p: TPosition; x: real); begin
+  pos := p;
   kind := TT_FLOAT;
   floatv := x;
 end;
@@ -108,6 +115,9 @@ begin
       break;
     end;
 end;
+function TToken.IsEOF(): Boolean; begin
+  IsEOF := kind = TT_EOF;
+end;
 
 procedure TToken.SetInt(x: integer); begin
   if IsInt() then
@@ -145,6 +155,9 @@ function TToken.GetFloat(): real; begin
      GetFloat := floatv
   else
      raise Exception.Create('Tried to get float value of a non-float token')
+end;
+function TToken.GetPosition(): TPosition; begin
+  GetPosition := pos.Copy();
 end;
 
 function TToken.Repr(): string; begin

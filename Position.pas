@@ -22,6 +22,7 @@ type
       function GetIndex(): Cardinal;
       function GetFilename(): ShortString;
       function GetLineNumber(): Cardinal;
+      function GetColumn(): Cardinal;
   end;
 
 implementation
@@ -53,5 +54,9 @@ end;
 function TPosition.GetLineNumber(): Cardinal; begin
   GetLineNumber := ln;
 end;
+function TPosition.GetColumn(): Cardinal; begin
+  GetColumn := col;
+end;
+
 end.
 

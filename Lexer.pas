@@ -69,12 +69,12 @@ begin
        inc(i);
     end else begin
       case current_char^ of
-       '+': makeTokens.tokens[i] := TToken.Create(TT_PLUS);
-       '-': makeTokens.tokens[i] := TToken.Create(TT_MINUS);
-       '*': makeTokens.tokens[i] := TToken.Create(TT_MUL);
-       '/': makeTokens.tokens[i] := TToken.Create(TT_DIV);
-       '(': makeTokens.tokens[i] := TToken.Create(TT_LPAREN);
-       ')': makeTokens.tokens[i] := TToken.Create(TT_RPAREN);
+       '+': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_PLUS);
+       '-': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MINUS);
+       '*': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MUL);
+       '/': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_DIV);
+       '(': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_LPAREN);
+       ')': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_RPAREN);
        else begin
          makeTokens.tokens := nil;
          makeTokens.error := TIllegalCharError.Create(pos.Copy(), Concat('''', current_char^, ''''));
@@ -85,14 +85,16 @@ begin
       inc(i);
     end;
   end;
+  makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_EOF);
 end;
 function TLexer.MakeNumber(): TToken;
 var
   num_str: string;
   dot_count: integer;
-
+  p: TPosition;
 begin
   num_str := ''; dot_count := 0;
+  p := pos.Copy();
   while (current_char <> nil) and (Contains(DIGITS, current_char) or (current_char^ = '.')) do begin
     if current_char^ = '.' then begin
       inc(dot_count);
@@ -104,9 +106,9 @@ begin
   end;
 
   if dot_count = 0 then
-     makeNumber := TToken.CreateInt(StrToInt(num_str))
+     makeNumber := TToken.CreateInt(p, StrToInt(num_str))
   else
-     makeNumber := TToken.CreateFloat(StrToFloat(num_str));
+     makeNumber := TToken.CreateFloat(p, StrToFloat(num_str));
 end;
 end.
 

@@ -5,32 +5,39 @@ unit Basic;
 interface
 
 uses
-  Classes, SysUtils, LangErrors, Position, Token, Parser, Lexer;
+  Classes, SysUtils, Token, Parser, Lexer, Interpreter;
 
-function RunCode(text: string): TParseResult;
+function RunCode(text: string): TNumberResult;
 
 implementation
 
-function RunCode(text: string): TParseResult;
+function RunCode(text: string): TNumberResult;
 var
   lxr: TLexer;
-  rslt: TTokensResult;
+  lxr_rslt: TTokensResult;
   prsr: TParser;
-  ast: TNode;
+  prsr_rslt: TParseResult;
+  intptr: TInterpreter;
 begin
-  RunCode := Default(TParseResult);
+  RunCode := Default(TNumberResult);
   lxr := TLexer.Create(text, '<console>');
-  rslt := lxr.makeTokens();
+  lxr_rslt := lxr.makeTokens();
 
-  if rslt.error <> nil then begin
-    RunCode.error := rslt.error;
+  if lxr_rslt.error <> nil then begin
+    RunCode.error := lxr_rslt.error;
     Exit;
   end;
 
-  prsr := TParser.Create(rslt.tokens);
-  ast := prsr.Parse();
+  prsr := TParser.Create(lxr_rslt.tokens);
+  prsr_rslt := prsr.Parse();
 
-  RunCode.node := ast;
+  if prsr_rslt.error <> nil then begin
+    RunCode.error := prsr_rslt.error;
+    Exit;
+  end;
+
+  intptr := Default(TInterpreter);
+  RunCode := intptr.Visit(prsr_rslt.node);
 end;
 
 end.
