@@ -8,16 +8,14 @@ uses
   Classes, SysUtils, LangErrors, Position;
 
 type
+  PReal = ^Real;
   TTokenKind = (TT_INT, TT_STR, TT_BOOL, TT_FLOAT, TT_PLUS, TT_MINUS, TT_DIV, TT_MUL, TT_LPAREN, TT_RPAREN, TT_EOF);
   TTokenKindArray = array of TTokenKind;
 
   TToken = class
     private
       kind: TTokenKind;
-      intv: Integer;
-      // strv: string;
-      boolv: Boolean;
-      floatv: Real;
+      value: Pointer;
       pos: TPosition;
 
     public
@@ -26,7 +24,6 @@ type
       constructor CreateBool(p: TPosition; x: Boolean);
       constructor CreateFloat(p: TPosition; x: Real);
       function IsInt(): Boolean;
-      // function isStr(): boolean;
       function IsBool(): Boolean;
       function IsFloat(): Boolean;
       function IsPlus(): Boolean;
@@ -38,11 +35,9 @@ type
       function IsEOF(): Boolean;
       function IsOfKind(kinds: TTokenKindArray): Boolean;
       procedure SetInt(x: Integer);
-      // procedure setStr(x: string);
       procedure SetBool(x: Boolean);
       procedure SetFloat(x: Real);
       function GetInt(): Integer;
-      // function getStr(): integer;
       function GetBool(): Boolean;
       function GetFloat(): Real;
       function GetPosition(): TPosition;
@@ -64,17 +59,20 @@ end;
 constructor TToken.CreateInt(p: TPosition; x: integer); begin
   pos := p;
   kind := TT_INT;
-  intv := x;
+  value := GetMem(SizeOf(x));
+  SetInt(x);
 end;
 constructor TToken.CreateBool(p: TPosition; x: boolean); begin
   pos := p;
   kind := TT_BOOL;
-  boolv := x;
+  value := GetMem(SizeOf(x));
+  SetBool(x);
 end;
 constructor TToken.CreateFloat(p: TPosition; x: real); begin
   pos := p;
   kind := TT_FLOAT;
-  floatv := x;
+  value := GetMem(SizeOf(x));
+  SetFloat(x);
 end;
 
 function TToken.IsInt(): boolean; begin
@@ -121,38 +119,38 @@ end;
 
 procedure TToken.SetInt(x: integer); begin
   if IsInt() then
-     intv := x
+     PInteger(value)^ := x
   else
      raise Exception.Create('Tried to assign an int to a non-int token');
 end;
 procedure TToken.SetBool(x: boolean); begin
   if IsBool() then
-     boolv := x
+     PBoolean(value)^ := x
   else
      raise Exception.Create('Tried to assign a bool to a non-bool token');
 end;
 procedure TToken.SetFloat(x: real); begin
   if IsFloat() then
-     floatv := x
+     PReal(value)^ := x
   else
      raise Exception.Create('Tried to assign a float to a non-float token');
 end;
 
 function TToken.GetInt(): integer; begin
   if kind = TT_INT then
-     GetInt := intv
+     GetInt := PInteger(value)^
   else
      raise Exception.Create('Tried to get int value of a non-int token')
 end;
 function TToken.GetBool(): boolean; begin
   if kind = TT_BOOL then
-     GetBool := boolv
+     GetBool := PBoolean(value)^
   else
      raise Exception.Create('Tried to get bool value of a non-bool token')
 end;
 function TToken.GetFloat(): real; begin
   if kind = TT_FLOAT then
-     GetFloat := floatv
+     GetFloat := PReal(value)^
   else
      raise Exception.Create('Tried to get float value of a non-float token')
 end;
@@ -162,11 +160,11 @@ end;
 
 function TToken.Repr(): string; begin
   if kind = TT_INT then
-     Repr := Concat('INT:', IntToStr(intv))
+     Repr := Concat('INT:', IntToStr(GetInt()))
   else if kind = TT_BOOL then
-     Repr := Concat('BOOL:', BoolToStr(boolv))
+     Repr := Concat('BOOL:', BoolToStr(GetBool()))
   else if kind = TT_FLOAT then
-     Repr := Concat('FLOAT:', FloatToStr(floatv))
+     Repr := Concat('FLOAT:', FloatToStr(GetFloat()))
   else if kind = TT_PLUS then
      Repr := 'PLUS'
   else if kind = TT_MINUS then
