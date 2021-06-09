@@ -57,11 +57,11 @@ var
 
 begin
   makeTokens := Default(TTokensResult);
-  SetLength(makeTokens.tokens, 20);
-  for i := 0 to 20 do
-    makeTokens.tokens[i] := nil;
+  SetLength(makeTokens.tokens, 32);
   i := 1;
   while current_char <> nil do begin
+    if i >= Length(makeTokens.tokens) then
+      SetLength(makeTokens.tokens, Length(makeTokens.tokens)*2);
     case current_char^ of
       ' ', #9: begin // Space or tab
         Advance();
