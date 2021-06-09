@@ -37,7 +37,7 @@ procedure TPosition.Advance(current_char: Char); begin
   inc(idx);
   inc(col);
 
-  if current_char = chr(10) then begin
+  if current_char = #10 then begin
      inc(ln);
      col := 0;
   end;
