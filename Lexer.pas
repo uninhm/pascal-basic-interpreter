@@ -62,28 +62,30 @@ begin
     makeTokens.tokens[i] := nil;
   i := 1;
   while current_char <> nil do begin
-    if Contains(' \t', current_char) then
-       advance()
-    else if Contains(DIGITS, current_char) then begin
-       makeTokens.tokens[i] := makeNumber();
-       inc(i);
-    end else begin
-      case current_char^ of
-       '+': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_PLUS);
-       '-': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MINUS);
-       '*': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MUL);
-       '/': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_DIV);
-       '(': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_LPAREN);
-       ')': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_RPAREN);
-       else begin
-         makeTokens.tokens := nil;
-         makeTokens.error := TIllegalCharError.Create(pos.Copy(), Concat('''', current_char^, ''''));
-         Exit;
-       end;
+    case current_char^ of
+      ' ', #9: begin // Space or tab
+        Advance();
+        continue;
       end;
-      advance();
-      inc(i);
+      '0' .. '9': begin
+        makeTokens.tokens[i] := makeNumber();
+        inc(i);
+        continue;
+      end;
+      '+': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_PLUS);
+      '-': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MINUS);
+      '*': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MUL);
+      '/': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_DIV);
+      '(': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_LPAREN);
+      ')': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_RPAREN);
+      else begin
+        makeTokens.tokens := nil;
+        makeTokens.error := TIllegalCharError.Create(pos.Copy(), Concat('''', current_char^, ''''));
+        Exit;
+      end;
     end;
+    Advance();
+    inc(i);
   end;
   makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_EOF);
 end;
