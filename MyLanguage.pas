@@ -1,4 +1,4 @@
-program MyLanguage;
+program MyLanguage(stdin);
 
 {$mode objfpc}{$H+}
 
@@ -6,7 +6,7 @@ uses
   {$IFDEF UNIX}{$IFDEF UseCThreads}
   cthreads,
   {$ENDIF}{$ENDIF}
-  Classes, SysUtils, CustApp, Basic, Interpreter
+  Classes, SysUtils, CustApp, Basic, Interpreter, TermIO
   { you can add units after this };
 
 type
@@ -14,10 +14,12 @@ type
   { Console }
 
   Console = class(TCustomApplication)
+	private
+		stdin: Text;
   protected
     procedure DoRun; override;
   public
-    constructor Create(TheOwner: TComponent); override;
+    constructor Create2(var inp: Text; TheOwner: TComponent);
     destructor Destroy; override;
     procedure WriteHelp; virtual;
   end;
@@ -28,7 +30,8 @@ procedure Console.DoRun;
 var
   ErrorMsg: String;
   text: String;
-  result: TNumberResult;
+  res: TNumberResult;
+
 begin
   // quick check parameters
   ErrorMsg:=CheckOptions('h', 'help');
@@ -46,13 +49,15 @@ begin
   end;
 
   while true do begin
-    write('basic> '); readln(text);
+		if IsATTY(stdin) = 1 then
+			Write('basic> ');
+		ReadLn(text);
     if text = 'exit' then break;
-    result := RunCode(text);
-    if result.error <> nil then
-       WriteLn(result.error.AsStr())
+    res := RunCode(text);
+    if res.error <> nil then
+       WriteLn(res.error.AsStr())
     else begin
-      WriteLn(result.num.Repr());
+      WriteLn(res.num.Repr());
     end;
   end;
 
@@ -66,9 +71,10 @@ begin
   Terminate;
 end;
 
-constructor Console.Create(TheOwner: TComponent);
+constructor Console.Create2(var inp: Text; TheOwner: TComponent);
 begin
-  inherited Create(TheOwner);
+  Create(TheOwner);
+	stdin := inp;
   StopOnException:=True;
 end;
 
@@ -85,8 +91,9 @@ end;
 
 var
   Application: Console;
+	stdin: Text;
 begin
-  Application:=Console.Create(nil);
+  Application:=Console.Create2(stdin, nil);
   Application.Title:='My Language';
   Application.Run;
   Application.Free;
