@@ -8,7 +8,7 @@ This project is unfinished, for now it can be used as a calculator with an extra
 ## Usage
 ```
 $ ./MyLanguage
-basic> var i = 6
+basic> var i = 3 + 3
 6
 basic> 2 + i * 9
 56
