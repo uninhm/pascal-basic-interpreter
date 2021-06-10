@@ -17,10 +17,15 @@ type
       pos: TPosition;
       value: Pointer;
     public
-      constructor Create(val: Integer);
-      constructor Create(val: Real);
-      constructor Create(val: AnsiString);
+      constructor Create(k: TValueKind);
+      constructor CreateInt(val: Integer);
+      constructor CreateFloat(val: Real);
+      constructor CreateIdent(val: AnsiString);
       constructor CreateNil();
+      function IsInt(): Boolean;
+      function IsFloat(): Boolean;
+      function IsIdent(): Boolean;
+      function IsNil(): Boolean;
       function GetPosition(): TPosition;
       function GetKind(): TValueKind;
       function GetFloat(): Real;
@@ -52,21 +57,37 @@ type
   end;
 
 implementation
+constructor TValue.Create(k: TValueKind); begin
+  kind := k;
+end;
 
-constructor TValue.Create(val: Integer); begin
-  kind := VK_INT;
+constructor TValue.CreateInt(val: Integer); begin
+  Create(VK_INT);
   SetInt(val);
 end;
-constructor TValue.Create(val: Real); begin
-  kind := VK_FLOAT;
+constructor TValue.CreateFloat(val: Real); begin
+  Create(VK_FLOAT);
   SetFloat(val);
 end;
-constructor TValue.Create(val: AnsiString); begin
-  kind := VK_IDENT;
+constructor TValue.CreateIdent(val: AnsiString); begin
+  Create(VK_IDENT);
   SetIdent(val);
 end;
 constructor TValue.CreateNil(); begin
-  kind := VK_NIL;
+  Create(VK_NIL);
+end;
+
+function TValue.IsInt(): Boolean; begin
+  Result := kind = VK_INT;
+end;
+function TValue.IsFloat(): Boolean; begin
+  Result := kind = VK_FLOAT;
+end;
+function TValue.IsIdent(): Boolean; begin
+  Result := kind = VK_IDENT;
+end;
+function TValue.IsNil(): Boolean; begin
+  Result := kind = VK_NIL;
 end;
 
 procedure TValue.SetInt(val: Integer); begin
@@ -95,30 +116,32 @@ function TValue.GetKind(): TValueKind; begin
   Result := kind;
 end;
 function TValue.GetFloat(): Real; begin
-  if kind = VK_FLOAT then
+  if IsFloat() then
      GetFloat := PReal(value)^
   else
      raise Exception.Create('Tried to get float of a non-float value');
 end;
 function TValue.GetInt(): Integer; begin
-  if kind = VK_INT then
+  if IsInt() then
      GetInt := PInteger(value)^
   else
      raise Exception.Create('Tried to get int of a non-int value')
 end;
 function TValue.GetIdent(): AnsiString; begin
-  if kind = VK_IDENT then
+  if IsIdent() then
      GetIdent := AnsiString(value)
   else
      raise Exception.Create('Tried to get ident of a non-ident value')
 end;
 
 function TValue.Repr(): String; begin
-  if kind = VK_INT then
+  if IsInt() then
     Repr := IntToStr(GetInt())
-  else if kind = VK_FLOAT then
+  else if IsFloat() then
     Repr := FloatToStr(GetFloat())
-  else if kind = VK_NIL then
+  else if IsIdent() then
+    Repr := AnsiString(value)
+  else if IsNil() then
     Repr := 'NIL';
 end;
 
@@ -129,10 +152,10 @@ function AddedTo(num, other: TValue): TValueResult; begin
     Exit;
   end;
 
-  if num.GetKind() = VK_INT then
-    Result.value := TValue.Create(num.GetInt() + other.GetInt())
-  else if num.GetKind() = VK_FLOAT then
-    Result.value := TValue.Create(num.GetFloat() + other.GetFloat())
+  if num.IsInt() then
+    Result.value := TValue.CreateInt(num.GetInt() + other.GetInt())
+  else if num.IsFloat() then
+    Result.value := TValue.CreateFloat(num.GetFloat() + other.GetFloat())
 end;
 function SubbedBy(num, other: TValue): TValueResult; begin
   Result := Default(TValueResult);
@@ -141,10 +164,10 @@ function SubbedBy(num, other: TValue): TValueResult; begin
     Exit;
   end;
 
-  if num.GetKind() = VK_INT then
-    Result.value := TValue.Create(num.GetInt() - other.GetInt())
-  else if num.GetKind() = VK_FLOAT then
-    Result.value := TValue.Create(num.GetFloat() - other.GetFloat())
+  if num.IsInt() then
+    Result.value := TValue.CreateInt(num.GetInt() - other.GetInt())
+  else if num.IsFloat() then
+    Result.value := TValue.CreateFloat(num.GetFloat() - other.GetFloat())
 end;
 function MultedBy(num, other: TValue): TValueResult; begin
   Result := Default(TValueResult);
@@ -153,10 +176,10 @@ function MultedBy(num, other: TValue): TValueResult; begin
     Exit;
   end;
 
-  if num.GetKind() = VK_INT then
-    Result.value := TValue.Create(num.GetInt() * other.GetInt())
-  else if num.GetKind() = VK_FLOAT then
-    Result.value := TValue.Create(num.GetFloat() * other.GetFloat())
+  if num.IsInt() then
+    Result.value := TValue.CreateInt(num.GetInt() * other.GetInt())
+  else if num.IsFloat() then
+    Result.value := TValue.CreateFloat(num.GetFloat() * other.GetFloat())
 end;
 function DivedBy(num, other: TValue): TValueResult; begin
   Result := Default(TValueResult);
@@ -165,16 +188,16 @@ function DivedBy(num, other: TValue): TValueResult; begin
     Exit;
   end;
 
-  if num.GetKind() = VK_INT then begin
+  if num.IsInt() then begin
     if other.GetInt() = 0 then
       Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t divide by zero')
     else
-      Result.value := TValue.Create(num.GetInt() / other.GetInt());
-  end else if num.GetKind() = VK_FLOAT then begin
+      Result.value := TValue.CreateInt(num.GetInt() div other.GetInt());
+  end else if num.IsFloat() then begin
     if other.GetFloat() = 0.0 then
       Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t divide by zero')
     else
-      Result.value := TValue.Create(Num.GetFloat() / other.GetFloat())
+      Result.value := TValue.CreateFloat(Num.GetFloat() / other.GetFloat());
   end;
 end;
 
@@ -199,9 +222,9 @@ var
 begin
   Result := Default(TValueResult);
   if nd.IsInt() then
-     Result.value := TValue.Create(nd.GetInt())
+     Result.value := TValue.CreateInt(nd.GetInt())
   else if nd.IsFloat() then
-     Result.value := TValue.Create(nd.GetFloat())
+     Result.value := TValue.CreateFloat(nd.GetFloat())
   else if nd.IsIdent() then begin
     i := variables.IndexOf(nd.GetIdent());
     if i = (-1) then begin
@@ -236,9 +259,19 @@ begin
   if Result.error = nil then
     Result.value.pos := nd.op.GetPosition();
 end;
-function TInterpreter.Visit(nd: TAssignationNode): TValueResult; begin
+function TInterpreter.Visit(nd: TAssignationNode): TValueResult;
+var
+  i: Integer;
+begin
   Result := Visit(nd.value);
   if Result.error <> nil then Exit;
+
+  i := variables.IndexOf(nd.ident.GetIdent());
+  if i <> (-1) then begin
+    Result.value := nil;
+    Result.error := TRuntimeError.Create(nd.ident.GetPosition(), 'Already used identifier');
+    Exit;
+  end;
 
   variables.Add(nd.ident.GetIdent(), Result.value);
 end;
@@ -247,10 +280,10 @@ function TInterpreter.Visit(nd: TUnaryOpNode): TValueResult; begin
   if Result.error <> nil then Exit;
 
   if nd.op.IsMinus() then begin
-    if Result.value.GetKind() = VK_INT then
-       Result := MultedBy(Result.value, TValue.Create(-1))
-    else if Result.value.GetKind() = VK_FLOAT then
-       Result := MultedBy(Result.value, TValue.Create(-1.0));
+    if Result.value.IsInt() then
+       Result := MultedBy(Result.value, TValue.CreateInt(-1))
+    else if Result.value.IsFloat() then
+       Result := MultedBy(Result.value, TValue.CreateFloat(-1));
   end;
   if Result.error = nil then
     Result.value.pos := nd.op.GetPosition();
