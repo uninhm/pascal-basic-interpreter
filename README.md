@@ -1,6 +1,6 @@
 # pascal-basic-interpreter
 
-This project is unfinished, for now it can be used as a calculator with an extra feature, contants (they were suppposed to be variables, that's why the keyword is 'var').
+This project is unfinished, for now it can be used as a calculator with an extra feature: contants (they were suppposed to be variables, that's why the keyword is 'var').
 
 ## Build
 `fpc -O2 MyLanguage.pas`
