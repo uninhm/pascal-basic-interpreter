@@ -32,6 +32,11 @@ type
       constructor Create(p: TPosition; d: string);
   end;
 
+  TRuntimeError = class(TError)
+    public
+      constructor Create(p: TPosition; d: string);
+  end;
+
 implementation
 constructor TError.Create(p: TPosition; n: string; d: string); begin
   pos := p;
@@ -54,6 +59,10 @@ end;
 
 constructor TInvalidOperationError.Create(p: TPosition; d: string); begin
   inherited Create(p, 'Invalid Operation', d);
+end;
+
+constructor TRuntimeError.Create(p: TPosition; d: string); begin
+  inherited Create(p, 'Runtime Error', d);
 end;
 
 end.

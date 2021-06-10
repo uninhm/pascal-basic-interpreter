@@ -18,7 +18,7 @@ type
     error: TError;
   end;
 
-  TNumberNode = class(TNode)
+  TValueNode = class(TNode)
     private
       tok: TToken;
     public
@@ -26,8 +26,10 @@ type
       function Repr(): String; override;
       function IsInt(): Boolean;
       function IsFloat(): Boolean;
+      function IsIdent(): Boolean;
       function GetInt(): Integer;
       function GetFloat(): Real;
+      function GetIdent(): AnsiString;
       function GetPosition(): TPosition;
   end;
 
@@ -37,6 +39,14 @@ type
       op: TToken;
       constructor Create(left_node: TNode; operator_token: TToken; right_node: TNode);
       function Repr(): string; override;
+  end;
+
+  TAssignationNode = class(TNode)
+    public
+      ident: TToken;
+      value: TNode;
+      constructor Create(ident_token: TToken; value_node: TNode);
+      //function Repr(): string; override;
   end;
 
   TUnaryOpNode = class(TNode)
@@ -66,7 +76,7 @@ type
   end;
 
 implementation
-constructor TNumberNode.Create(t: TToken); begin
+constructor TValueNode.Create(t: TToken); begin
   tok := t;
 end;
 constructor TBinOpNode.Create(left_node: TNode; operator_token: TToken; right_node: TNode); begin
@@ -74,32 +84,42 @@ constructor TBinOpNode.Create(left_node: TNode; operator_token: TToken; right_no
   right := right_node;
   op := operator_token;
 end;
+constructor TAssignationNode.Create(ident_token: TToken; value_node: TNode); begin
+  ident := ident_token;
+  value := value_node;
+end;
 constructor TUnaryOpNode.Create(operator_token: TToken; node: TNode); begin
   nd := node;
   op := operator_token;
 end;
 
-function TNumberNode.IsInt(): Boolean; begin
+function TValueNode.IsInt(): Boolean; begin
   Result := tok.IsInt();
 end;
-function TNumberNode.IsFloat(): Boolean; begin
+function TValueNode.IsFloat(): Boolean; begin
   Result := tok.IsFloat();
 end;
+function TValueNode.IsIdent(): Boolean; begin
+  Result := tok.IsIdent();
+end;
 
-function TNumberNode.GetInt(): Integer; begin
+function TValueNode.GetInt(): Integer; begin
   Result := tok.GetInt();
 end;
-function TNumberNode.GetFloat(): Real; begin
+function TValueNode.GetFloat(): Real; begin
   Result := tok.GetFloat();
 end;
-function TNumberNode.GetPosition(): TPosition; begin
+function TValueNode.GetIdent(): AnsiString; begin
+  Result := tok.GetIdent();
+end;
+function TValueNode.GetPosition(): TPosition; begin
   Result := tok.GetPosition();
 end;
 
 function TNode.Repr(): string; begin
   Repr := 'NULL';
 end;
-function TNumberNode.Repr(): string; begin
+function TValueNode.Repr(): string; begin
   Repr := tok.Repr();
 end;
 function TBinOpNode.Repr(): string; begin
@@ -130,7 +150,7 @@ begin
   end;
 
   if current_tok.IsInt() or current_tok.IsFloat() then begin
-    Factor.node := TNumberNode.Create(current_tok);
+    Factor.node := TValueNode.Create(current_tok);
     Advance();
   end else if current_tok.IsPlus() or current_tok.IsMinus() then begin
     tkn := current_tok;
@@ -145,6 +165,9 @@ begin
       Factor.node := nil;
       Factor.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Expected '')''');
     end;
+    Advance();
+  end else if current_tok.IsIdent() then begin
+    Factor.node := TValueNode.Create(current_tok);
     Advance();
   end else
     Factor.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Expression expected');
@@ -174,8 +197,33 @@ end;
 function TParser.Expr(): TParseResult;
 var
   ops: TTokenKindArray = (TT_PLUS, TT_MINUS);
+  ident_tok: TToken;
+  value: TParseResult;
 begin
-  Expr := BinOp(@Term, ops);
+  Expr := Default(TParseResult);
+  if current_tok.IsKeyword() then begin
+    if current_tok.GetKeyword() = 'var' then begin
+      Advance();
+      if not current_tok.IsIdent() then begin
+        Expr.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Identifier expected');
+        Exit;
+      end;
+      ident_tok := current_tok;
+      Advance();
+      if not current_tok.IsEq() then begin
+        Expr.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), '''='' expected');
+        Exit;
+      end;
+      Advance();
+      value := Expr();
+      if value.error <> nil then begin
+        Expr := value;
+        Exit;
+      end;
+      Expr.node := TAssignationNode.Create(ident_tok, value.node);
+    end;
+  end else
+    Expr := BinOp(@Term, ops);
 end;
 function TParser.Parse(): TParseResult; begin
   Parse := Expr();

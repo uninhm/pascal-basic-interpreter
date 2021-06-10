@@ -7,19 +7,18 @@ interface
 uses
   Classes, SysUtils, Token, Parser, Lexer, Interpreter;
 
-function RunCode(text: string): TNumberResult;
+function RunCode(text: string; intptr: TInterpreter): TValueResult;
 
 implementation
 
-function RunCode(text: string): TNumberResult;
+function RunCode(text: string; intptr: TInterpreter): TValueResult;
 var
   lxr: TLexer;
   lxr_rslt: TTokensResult;
   prsr: TParser;
   prsr_rslt: TParseResult;
-  intptr: TInterpreter;
 begin
-  RunCode := Default(TNumberResult);
+  RunCode := Default(TValueResult);
   lxr := TLexer.Create(text, '<console>');
   lxr_rslt := lxr.makeTokens();
 
@@ -36,7 +35,6 @@ begin
     Exit;
   end;
 
-  intptr := Default(TInterpreter);
   RunCode := intptr.Visit(prsr_rslt.node);
 end;
 

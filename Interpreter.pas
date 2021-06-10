@@ -5,154 +5,217 @@ unit Interpreter;
 interface
 
 uses
-  Classes, SysUtils, Parser, LangErrors, Position;
+  Classes, SysUtils, Parser, LangErrors, Position, fgl;
 
 type
-  TNumberKind = (NK_INT, NK_FLOAT);
+  PReal = ^Real;
+  TValueKind = (VK_INT, VK_FLOAT, VK_IDENT, VK_NIL);
 
-
-  TNumber = class
+  TValue = class
     private
-      kind: TNumberKind;
+      kind: TValueKind;
       pos: TPosition;
-      intv: Integer;
-      floatv: Real;
+      value: Pointer;
     public
       constructor Create(val: Integer);
       constructor Create(val: Real);
+      constructor Create(val: AnsiString);
+      constructor CreateNil();
       function GetPosition(): TPosition;
-      function GetKind(): TNumberKind;
+      function GetKind(): TValueKind;
       function GetFloat(): Real;
       function GetInt(): Integer;
+      function GetIdent(): AnsiString;
+      procedure SetInt(val: Integer);
+      procedure SetFloat(val: Real);
+      procedure SetIdent(val: AnsiString);
       function Repr(): String;
   end;
 
-  TNumberResult = record
-    num: TNumber;
+  TVariables = specialize TFPGMap<String, TValue>;
+
+  TValueResult = record
+    value: TValue;
     error: TError;
   end;
 
   TInterpreter = class
+    private
+      variables: TVariables;
     public
-      function Visit(nd: TNode): TNumberResult;
-      function Visit(nd: TNumberNode): TNumberResult;
-      function Visit(nd: TBinOpNode): TNumberResult;
-      function Visit(nd: TUnaryOpNode): TNumberResult;
+      constructor Create();
+      function Visit(nd: TNode): TValueResult;
+      function Visit(nd: TValueNode): TValueResult;
+      function Visit(nd: TBinOpNode): TValueResult;
+      function Visit(nd: TAssignationNode): TValueResult;
+      function Visit(nd: TUnaryOpNode): TValueResult;
   end;
 
 implementation
 
-constructor TNumber.Create(val: Integer); begin
-  kind := NK_INT;
-  intv := val;
+constructor TValue.Create(val: Integer); begin
+  kind := VK_INT;
+  SetInt(val);
 end;
-constructor TNumber.Create(val: Real); begin
-  kind := NK_FLOAT;
-  floatv := val;
+constructor TValue.Create(val: Real); begin
+  kind := VK_FLOAT;
+  SetFloat(val);
+end;
+constructor TValue.Create(val: AnsiString); begin
+  kind := VK_IDENT;
+  SetIdent(val);
+end;
+constructor TValue.CreateNil(); begin
+  kind := VK_NIL;
 end;
 
-function TNumber.GetPosition(): TPosition; begin
+procedure TValue.SetInt(val: Integer); begin
+  if Assigned(value) then
+    FreeMem(value);
+  value := GetMem(SizeOf(val));
+  PInteger(value)^ := val;
+end;
+procedure TValue.SetFloat(val: Real); begin
+  if Assigned(value) then
+    FreeMem(value);
+  value := GetMem(SizeOf(val));
+  PReal(value)^ := val;
+end;
+procedure TValue.SetIdent(val: AnsiString); begin
+  if Assigned(value) then
+    FreeMem(value);
+  value := GetMem(Length(val)+1);
+  AnsiString(value) := val;
+end;
+
+function TValue.GetPosition(): TPosition; begin
   GetPosition := pos.Copy();
 end;
-function TNumber.GetKind(): TNumberKind; begin
+function TValue.GetKind(): TValueKind; begin
   Result := kind;
 end;
-function TNumber.GetFloat(): Real; begin
-  if kind = NK_FLOAT then
-     GetFloat := floatv
+function TValue.GetFloat(): Real; begin
+  if kind = VK_FLOAT then
+     GetFloat := PReal(value)^
   else
-     raise Exception.Create('Tried to get float value of a non-float token');
+     raise Exception.Create('Tried to get float of a non-float value');
 end;
-function TNumber.GetInt(): Integer; begin
-  if kind = NK_INT then
-     GetInt := intv
+function TValue.GetInt(): Integer; begin
+  if kind = VK_INT then
+     GetInt := PInteger(value)^
   else
-     raise Exception.Create('Tried to get int value of a non-int token')
+     raise Exception.Create('Tried to get int of a non-int value')
+end;
+function TValue.GetIdent(): AnsiString; begin
+  if kind = VK_IDENT then
+     GetIdent := AnsiString(value)
+  else
+     raise Exception.Create('Tried to get ident of a non-ident value')
 end;
 
-function AddedTo(num, other: TNumber): TNumberResult; begin
-  Result := Default(TNumberResult);
+function TValue.Repr(): String; begin
+  if kind = VK_INT then
+    Repr := IntToStr(GetInt())
+  else if kind = VK_FLOAT then
+    Repr := FloatToStr(GetFloat())
+  else if kind = VK_NIL then
+    Repr := 'NIL';
+end;
+
+function AddedTo(num, other: TValue): TValueResult; begin
+  Result := Default(TValueResult);
   if num.GetKind() <> other.GetKind() then begin
     Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t operate different types');
     Exit;
   end;
 
-  if num.GetKind() = NK_INT then
-    Result.num := TNumber.Create(num.GetInt() + other.GetInt())
-  else if num.GetKind() = NK_FLOAT then
-    Result.num := TNumber.Create(num.GetFloat() + other.GetFloat())
+  if num.GetKind() = VK_INT then
+    Result.value := TValue.Create(num.GetInt() + other.GetInt())
+  else if num.GetKind() = VK_FLOAT then
+    Result.value := TValue.Create(num.GetFloat() + other.GetFloat())
 end;
-function SubbedBy(num, other: TNumber): TNumberResult; begin
-  Result := Default(TNumberResult);
+function SubbedBy(num, other: TValue): TValueResult; begin
+  Result := Default(TValueResult);
   if num.GetKind() <> other.GetKind() then begin
     Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t operate different types');
     Exit;
   end;
 
-  if num.GetKind() = NK_INT then
-    Result.num := TNumber.Create(num.GetInt() - other.GetInt())
-  else if num.GetKind() = NK_FLOAT then
-    Result.num := TNumber.Create(num.GetFloat() - other.GetFloat())
+  if num.GetKind() = VK_INT then
+    Result.value := TValue.Create(num.GetInt() - other.GetInt())
+  else if num.GetKind() = VK_FLOAT then
+    Result.value := TValue.Create(num.GetFloat() - other.GetFloat())
 end;
-function MultedBy(num, other: TNumber): TNumberResult; begin
-  Result := Default(TNumberResult);
+function MultedBy(num, other: TValue): TValueResult; begin
+  Result := Default(TValueResult);
   if num.GetKind() <> other.GetKind() then begin
     Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t operate different types');
     Exit;
   end;
 
-  if num.GetKind() = NK_INT then
-    Result.num := TNumber.Create(num.GetInt() * other.GetInt())
-  else if num.GetKind() = NK_FLOAT then
-    Result.num := TNumber.Create(num.GetFloat() * other.GetFloat())
+  if num.GetKind() = VK_INT then
+    Result.value := TValue.Create(num.GetInt() * other.GetInt())
+  else if num.GetKind() = VK_FLOAT then
+    Result.value := TValue.Create(num.GetFloat() * other.GetFloat())
 end;
-function DivedBy(num, other: TNumber): TNumberResult; begin
-  Result := Default(TNumberResult);
+function DivedBy(num, other: TValue): TValueResult; begin
+  Result := Default(TValueResult);
   if num.GetKind() <> other.GetKind() then begin
     Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t operate different types');
     Exit;
   end;
 
-  if num.GetKind() = NK_INT then begin
+  if num.GetKind() = VK_INT then begin
     if other.GetInt() = 0 then
       Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t divide by zero')
     else
-      Result.num := TNumber.Create(num.GetInt() / other.GetInt());
-  end else if num.GetKind() = NK_FLOAT then begin
+      Result.value := TValue.Create(num.GetInt() / other.GetInt());
+  end else if num.GetKind() = VK_FLOAT then begin
     if other.GetFloat() = 0.0 then
       Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t divide by zero')
     else
-      Result.num := TNumber.Create(Num.GetFloat() / other.GetFloat())
+      Result.value := TValue.Create(Num.GetFloat() / other.GetFloat())
   end;
 end;
 
-function TNumber.Repr(): String; begin
-  if kind = NK_INT then
-    Repr := IntToStr(intv)
-  else if kind = NK_FLOAT then
-    Repr := FloatToStr(floatv);
+constructor TInterpreter.Create(); begin
+  variables := TVariables.Create();
 end;
 
-function TInterpreter.Visit(nd: TNode): TNumberResult; begin
-  if nd.ClassType.InheritsFrom(TNumberNode) then
-    Result := Visit(TNumberNode(nd))
+function TInterpreter.Visit(nd: TNode): TValueResult; begin
+  if nd.ClassType.InheritsFrom(TValueNode) then
+    Result := Visit(TValueNode(nd))
   else if nd.ClassType.InheritsFrom(TBinOpNode) then
     Result := Visit(TBinOpNode(nd))
+  else if nd.ClassType.InheritsFrom(TAssignationNode) then
+    Result := Visit(TAssignationNode(nd))
   else if nd.ClassType.InheritsFrom(TUnaryOpNode) then
     Result := Visit(TUnaryOpNode(nd));
 end;
 
-function TInterpreter.Visit(nd: TNumberNode): TNumberResult; begin
-  Result := Default(TNumberResult);
-  if nd.IsInt() then
-     Result.num := TNumber.Create(nd.GetInt())
-  else if nd.IsFloat() then
-     Result.num := TNumber.create(nd.GetFloat());
-  Result.num.pos := nd.GetPosition();
-end;
-function TInterpreter.Visit(nd: TBinOpNode): TNumberResult;
+function TInterpreter.Visit(nd: TValueNode): TValueResult;
 var
-  left, right: TNumberResult;
+  i: Integer;
+begin
+  Result := Default(TValueResult);
+  if nd.IsInt() then
+     Result.value := TValue.Create(nd.GetInt())
+  else if nd.IsFloat() then
+     Result.value := TValue.Create(nd.GetFloat())
+  else if nd.IsIdent() then begin
+    i := variables.IndexOf(nd.GetIdent());
+    if i = (-1) then begin
+      Result.error := TRuntimeError.Create(nd.GetPosition(), Concat('Undefined variable ''', nd.GetIdent(), ''''));
+      Exit;
+    end;
+    Result.value := variables.Data[i];
+  end;
+  Result.value.pos := nd.GetPosition();
+end;
+
+function TInterpreter.Visit(nd: TBinOpNode): TValueResult;
+var
+  left, right: TValueResult;
 begin
   left := Visit(nd.left);
   if left.error <> nil then begin
@@ -163,28 +226,34 @@ begin
     Result := right; Exit;
   end;
   if nd.op.IsPlus() then
-    Result := AddedTo(left.num, right.num)
+    Result := AddedTo(left.value, right.value)
   else if nd.op.IsMinus() then
-    Result := SubbedBy(left.num, right.num)
+    Result := SubbedBy(left.value, right.value)
   else if nd.op.IsMul() then
-    Result := MultedBy(left.num, right.num)
+    Result := MultedBy(left.value, right.value)
   else if nd.op.IsDiv() then
-    Result := DivedBy(left.num, right.num);
+    Result := DivedBy(left.value, right.value);
   if Result.error = nil then
-    Result.num.pos := nd.op.GetPosition();
+    Result.value.pos := nd.op.GetPosition();
 end;
-function TInterpreter.Visit(nd: TUnaryOpNode): TNumberResult; begin
+function TInterpreter.Visit(nd: TAssignationNode): TValueResult; begin
+  Result := Visit(nd.value);
+  if Result.error <> nil then Exit;
+
+  variables.Add(nd.ident.GetIdent(), Result.value);
+end;
+function TInterpreter.Visit(nd: TUnaryOpNode): TValueResult; begin
   Result := Visit(nd.nd);
   if Result.error <> nil then Exit;
 
   if nd.op.IsMinus() then begin
-    if Result.num.GetKind() = NK_INT then
-       Result := MultedBy(Result.num, TNumber.Create(-1))
-    else if Result.num.GetKind() = NK_FLOAT then
-       Result := MultedBy(Result.num, TNumber.Create(-1.0));
+    if Result.value.GetKind() = VK_INT then
+       Result := MultedBy(Result.value, TValue.Create(-1))
+    else if Result.value.GetKind() = VK_FLOAT then
+       Result := MultedBy(Result.value, TValue.Create(-1.0));
   end;
   if Result.error = nil then
-    Result.num.pos := nd.op.GetPosition();
+    Result.value.pos := nd.op.GetPosition();
 end;
 end.
 

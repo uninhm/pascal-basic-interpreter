@@ -30,8 +30,8 @@ procedure Console.DoRun;
 var
   ErrorMsg: String;
   text: String;
-  res: TNumberResult;
-
+  res: TValueResult;
+  intptr: TInterpreter;
 begin
   // quick check parameters
   ErrorMsg:=CheckOptions('h', 'help');
@@ -48,24 +48,25 @@ begin
     Exit;
   end;
 
+  intptr := TInterpreter.Create();
   while true do begin
 		if IsATTY(stdin) = 1 then
 			Write('basic> ');
 		ReadLn(text);
     if text = 'exit' then break;
-    res := RunCode(text);
+    res := RunCode(text, intptr);
     if res.error <> nil then
        WriteLn(res.error.AsStr())
     else begin
-      WriteLn(res.num.Repr());
+      WriteLn(res.value.Repr());
     end;
   end;
 
-  {result := RunCode('1 + 1.');
-  if result.error <> nil then
-    WriteLn(result.error.AsStr())
+  {res := RunCode('var hola = 5');
+  if res.error <> nil then
+    WriteLn(res.error.AsStr())
   else
-    WriteLn(result.num.Repr());}
+    WriteLn(res.value.Repr());}
 
   // stop program loop
   Terminate;

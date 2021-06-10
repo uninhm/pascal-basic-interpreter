@@ -8,7 +8,7 @@ uses
   Classes, SysUtils, Position, Token, LangErrors;
 
 const
-  DIGITS = '1234567890';
+  KEYWORDS: array[0..1] of string = ('var', 'exit');
 
 type
   TLexer = class
@@ -19,13 +19,26 @@ type
       fn: ShortString;
 
       procedure advance();
-      function makeNumber(): TToken;
+      function MakeNumber(): TToken;
+      function MakeIdent(): TToken;
     public
-      constructor create(s: AnsiString; filename: ShortString);
-      function makeTokens(): TTokensResult;
+      constructor Create(s: AnsiString; filename: ShortString);
+      function MakeTokens(): TTokensResult;
   end;
 
 implementation
+function IsLetter(c: Char): Boolean; begin
+  Result := (('a' <= c) and (c <= 'z')) or (('A' <= c) and (c <= 'Z'));
+end;
+
+function IsDigit(c: Char): Boolean; begin
+  Result := ('0' <= c) and (c <= '9');
+end;
+
+function IsAlphanumeric(c: PChar): Boolean; begin
+  Result := IsLetter(c^) or IsDigit(c^) or (c^ = '_');
+end;
+
 constructor TLexer.Create(s: AnsiString; filename: ShortString); begin
   current_char := GetMem(1);
   text := s;
@@ -72,10 +85,16 @@ begin
         inc(i);
         continue;
       end;
+      'a' .. 'z', 'A' .. 'Z': begin
+        makeTokens.tokens[i] := MakeIdent();
+        inc(i);
+        continue;
+      end;
       '+': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_PLUS);
       '-': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MINUS);
       '*': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MUL);
       '/': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_DIV);
+      '=': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_EQ);
       '(': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_LPAREN);
       ')': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_RPAREN);
       else begin
@@ -97,7 +116,7 @@ var
 begin
   num_str := ''; dot_count := 0;
   p := pos.Copy();
-  while (current_char <> nil) and (Contains(DIGITS, current_char) or (current_char^ = '.')) do begin
+  while (current_char <> nil) and (IsDigit(current_char^) or (current_char^ = '.')) do begin
     if current_char^ = '.' then begin
       inc(dot_count);
       if dot_count > 1 then
@@ -112,5 +131,33 @@ begin
   else
      makeNumber := TToken.CreateFloat(p, StrToFloat(num_str));
 end;
-end.
 
+function IsKeyword(ident_str: ShortString): Boolean;
+var
+  k: ShortString;
+begin
+  Result := true;
+  for k in KEYWORDS do
+    if k = ident_str then Exit;
+  Result := false;
+end;
+
+function TLexer.MakeIdent(): TToken;
+var
+  ident_str: ShortString;
+  p: TPosition;
+begin
+  ident_str := '';
+  p := pos.Copy();
+  while (current_char <> nil) and IsAlphanumeric(current_char) do begin
+    ident_str := Concat(ident_str, current_char^);
+    Advance();
+  end;
+  
+  if IsKeyword(ident_str) then
+    Result := TToken.CreateKeyword(p, ident_str)
+  else
+    Result := TToken.CreateIdent(p, ident_str);
+end;
+
+end.
