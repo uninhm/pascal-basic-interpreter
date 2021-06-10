@@ -26,9 +26,11 @@ type
       function Repr(): String; override;
       function IsInt(): Boolean;
       function IsFloat(): Boolean;
+      function IsBool(): Boolean;
       function IsIdent(): Boolean;
       function GetInt(): Integer;
       function GetFloat(): Real;
+      function GetBool(): Boolean;
       function GetIdent(): AnsiString;
       function GetPosition(): TPosition;
   end;
@@ -66,6 +68,7 @@ type
       current_tok: TToken;
 
       procedure Advance();
+      function Atom(): TParseResult;
       function Factor(): TParseResult;
       function BinOp(func: TNodeFunction; ops: TTokenKindArray): TParseResult;
       function Term(): TParseResult;
@@ -99,6 +102,9 @@ end;
 function TValueNode.IsFloat(): Boolean; begin
   Result := tok.IsFloat();
 end;
+function TValueNode.IsBool(): Boolean; begin
+  Result := tok.IsBool();
+end;
 function TValueNode.IsIdent(): Boolean; begin
   Result := tok.IsIdent();
 end;
@@ -108,6 +114,9 @@ function TValueNode.GetInt(): Integer; begin
 end;
 function TValueNode.GetFloat(): Real; begin
   Result := tok.GetFloat();
+end;
+function TValueNode.GetBool(): Boolean; begin
+  Result := tok.GetBool();
 end;
 function TValueNode.GetIdent(): AnsiString; begin
   Result := tok.GetIdent();
@@ -138,39 +147,43 @@ procedure TParser.Advance(); begin
   inc(tok_idx);
   current_tok := tokens[tok_idx]
 end;
-function TParser.Factor(): TParseResult;
+function TParser.Atom(): TParseResult;
 var
   tkn: TToken;
 begin
-  Factor := Default(TParseResult);
+  Result := Default(TParseResult);
 
   if current_tok.IsEOF() then begin
-    Factor.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Expression expected');
+    Result.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Expression expected');
     Exit;
   end;
 
-  if current_tok.IsInt() or current_tok.IsFloat() then begin
-    Factor.node := TValueNode.Create(current_tok);
+  if current_tok.IsInt() or current_tok.IsFloat() or current_tok.IsBool() then begin
+    Result.node := TValueNode.Create(current_tok);
     Advance();
   end else if current_tok.IsPlus() or current_tok.IsMinus() then begin
     tkn := current_tok;
     Advance();
-    Factor := Factor();
-    if Factor.error <> nil then Exit;
-    Factor.node := TUnaryOpNode.Create(tkn, Factor.node);
+    Result := Atom();
+    if Result.error <> nil then Exit;
+    Result.node := TUnaryOpNode.Create(tkn, Result.node);
   end else if current_tok.IsLParen() then begin
     Advance();
-    Factor := Expr();
+    Result := Expr();
     if not current_tok.IsRParen() then begin
-      Factor.node := nil;
-      Factor.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Expected '')''');
+      Result.node := nil;
+      Result.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Expected '')''');
     end;
     Advance();
   end else if current_tok.IsIdent() then begin
-    Factor.node := TValueNode.Create(current_tok);
+    Result.node := TValueNode.Create(current_tok);
     Advance();
   end else
-    Factor.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Expression expected');
+    Result.error := TInvalidSyntaxError.Create(current_tok.GetPosition(), 'Expression expected');
+end;
+
+function TParser.Factor(): TParseResult; begin
+  Result := Atom();
 end;
 
 function TParser.BinOp(func: TNodeFunction; ops: TTokenKindArray): TParseResult;

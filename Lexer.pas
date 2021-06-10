@@ -156,6 +156,8 @@ begin
   
   if IsKeyword(ident_str) then
     Result := TToken.CreateKeyword(p, ident_str)
+  else if (ident_str = 'true') or (ident_str = 'false') then
+    Result := TToken.CreateBool(p, ident_str = 'true')
   else
     Result := TToken.CreateIdent(p, ident_str);
 end;

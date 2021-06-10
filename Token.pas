@@ -221,7 +221,7 @@ function TToken.Repr(): string; begin
   if kind = TT_INT then
      Repr := Concat('INT:', IntToStr(GetInt()))
   else if kind = TT_BOOL then
-     Repr := Concat('BOOL:', BoolToStr(GetBool()))
+     Repr := Concat('BOOL:', BoolToStr(GetBool(), 'true', 'false'))
   else if kind = TT_FLOAT then
      Repr := Concat('FLOAT:', FloatToStr(GetFloat()))
   else if kind = TT_PLUS then

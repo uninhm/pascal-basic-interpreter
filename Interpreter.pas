@@ -9,7 +9,7 @@ uses
 
 type
   PReal = ^Real;
-  TValueKind = (VK_INT, VK_FLOAT, VK_IDENT, VK_NIL);
+  TValueKind = (VK_INT, VK_FLOAT, VK_BOOL, VK_IDENT, VK_NIL);
 
   TValue = class
     private
@@ -20,19 +20,23 @@ type
       constructor Create(k: TValueKind);
       constructor CreateInt(val: Integer);
       constructor CreateFloat(val: Real);
+      constructor CreateBool(val: Boolean);
       constructor CreateIdent(val: AnsiString);
       constructor CreateNil();
       function IsInt(): Boolean;
       function IsFloat(): Boolean;
+      function IsBool(): Boolean;
       function IsIdent(): Boolean;
       function IsNil(): Boolean;
       function GetPosition(): TPosition;
       function GetKind(): TValueKind;
       function GetFloat(): Real;
       function GetInt(): Integer;
+      function GetBool(): Boolean;
       function GetIdent(): AnsiString;
       procedure SetInt(val: Integer);
       procedure SetFloat(val: Real);
+      procedure SetBool(val: Boolean);
       procedure SetIdent(val: AnsiString);
       function Repr(): String;
   end;
@@ -69,6 +73,10 @@ constructor TValue.CreateFloat(val: Real); begin
   Create(VK_FLOAT);
   SetFloat(val);
 end;
+constructor TValue.CreateBool(val: Boolean); begin
+  Create(VK_BOOL);
+  SetBool(val);
+end;
 constructor TValue.CreateIdent(val: AnsiString); begin
   Create(VK_IDENT);
   SetIdent(val);
@@ -82,6 +90,9 @@ function TValue.IsInt(): Boolean; begin
 end;
 function TValue.IsFloat(): Boolean; begin
   Result := kind = VK_FLOAT;
+end;
+function TValue.IsBool(): Boolean; begin
+  Result := kind = VK_BOOL;
 end;
 function TValue.IsIdent(): Boolean; begin
   Result := kind = VK_IDENT;
@@ -101,6 +112,12 @@ procedure TValue.SetFloat(val: Real); begin
     FreeMem(value);
   value := GetMem(SizeOf(val));
   PReal(value)^ := val;
+end;
+procedure TValue.SetBool(val: Boolean); begin
+  if Assigned(value) then
+    FreeMem(value);
+  value := GetMem(SizeOf(val));
+  PBoolean(value)^ := val;
 end;
 procedure TValue.SetIdent(val: AnsiString); begin
   if Assigned(value) then
@@ -127,6 +144,12 @@ function TValue.GetInt(): Integer; begin
   else
      raise Exception.Create('Tried to get int of a non-int value')
 end;
+function TValue.GetBool(): Boolean; begin
+  if IsBool() then
+     Result := PBoolean(value)^
+  else
+     raise Exception.Create('Tried to get bool of a non-bool value')
+end;
 function TValue.GetIdent(): AnsiString; begin
   if IsIdent() then
      GetIdent := AnsiString(value)
@@ -139,6 +162,8 @@ function TValue.Repr(): String; begin
     Repr := IntToStr(GetInt())
   else if IsFloat() then
     Repr := FloatToStr(GetFloat())
+  else if IsBool() then
+    Repr := BoolToStr(GetBool(), 'true', 'false')
   else if IsIdent() then
     Repr := AnsiString(value)
   else if IsNil() then
@@ -156,6 +181,8 @@ function AddedTo(num, other: TValue): TValueResult; begin
     Result.value := TValue.CreateInt(num.GetInt() + other.GetInt())
   else if num.IsFloat() then
     Result.value := TValue.CreateFloat(num.GetFloat() + other.GetFloat())
+  else
+    Result.error := TInvalidOperationError.Create(num.GetPosition(), 'Operation not defined for type');
 end;
 function SubbedBy(num, other: TValue): TValueResult; begin
   Result := Default(TValueResult);
@@ -168,6 +195,8 @@ function SubbedBy(num, other: TValue): TValueResult; begin
     Result.value := TValue.CreateInt(num.GetInt() - other.GetInt())
   else if num.IsFloat() then
     Result.value := TValue.CreateFloat(num.GetFloat() - other.GetFloat())
+  else
+    Result.error := TInvalidOperationError.Create(num.GetPosition(), 'Operation not defined for type');
 end;
 function MultedBy(num, other: TValue): TValueResult; begin
   Result := Default(TValueResult);
@@ -180,6 +209,8 @@ function MultedBy(num, other: TValue): TValueResult; begin
     Result.value := TValue.CreateInt(num.GetInt() * other.GetInt())
   else if num.IsFloat() then
     Result.value := TValue.CreateFloat(num.GetFloat() * other.GetFloat())
+  else
+    Result.error := TInvalidOperationError.Create(num.GetPosition(), 'Operation not defined for type');
 end;
 function DivedBy(num, other: TValue): TValueResult; begin
   Result := Default(TValueResult);
@@ -198,7 +229,8 @@ function DivedBy(num, other: TValue): TValueResult; begin
       Result.error := TInvalidOperationError.Create(other.GetPosition(), 'Can''t divide by zero')
     else
       Result.value := TValue.CreateFloat(Num.GetFloat() / other.GetFloat());
-  end;
+  end else
+    Result.error := TInvalidOperationError.Create(num.GetPosition(), 'Operation not defined for type');
 end;
 
 constructor TInterpreter.Create(); begin
@@ -222,9 +254,11 @@ var
 begin
   Result := Default(TValueResult);
   if nd.IsInt() then
-     Result.value := TValue.CreateInt(nd.GetInt())
+    Result.value := TValue.CreateInt(nd.GetInt())
   else if nd.IsFloat() then
-     Result.value := TValue.CreateFloat(nd.GetFloat())
+    Result.value := TValue.CreateFloat(nd.GetFloat())
+  else if nd.IsBool() then
+    Result.value := TValue.CreateBool(nd.GetBool())
   else if nd.IsIdent() then begin
     i := variables.IndexOf(nd.GetIdent());
     if i = (-1) then begin
