@@ -41,7 +41,16 @@ type
       function Repr(): String;
   end;
 
-  TVariables = specialize TFPGMap<String, TValue>;
+  TContent = specialize TFPGMap<String, TValue>;
+  TEnvironment = class
+    private
+      parent: TEnvironment;
+      content: TContent;
+    public
+      constructor Create(p: TEnvironment);
+      function Get(key: String): TValue;
+      procedure AddOrSet(key: String; data: TValue);
+  end;
 
   TValueResult = record
     value: TValue;
@@ -50,7 +59,7 @@ type
 
   TInterpreter = class
     private
-      variables: TVariables;
+      env: TEnvironment;
     public
       constructor Create();
       function Visit(nd: TNode): TValueResult;
@@ -158,16 +167,60 @@ function TValue.GetIdent(): AnsiString; begin
 end;
 
 function TValue.Repr(): String; begin
+  Repr := '';
   if IsInt() then
-    Repr := IntToStr(GetInt())
+    Repr := 'Int: ' + IntToStr(GetInt())
   else if IsFloat() then
-    Repr := FloatToStr(GetFloat())
+    Repr := 'Float: ' + FloatToStr(GetFloat())
   else if IsBool() then
-    Repr := BoolToStr(GetBool(), 'true', 'false')
+    Repr := 'Bool: ' + BoolToStr(GetBool(), 'true', 'false')
   else if IsIdent() then
-    Repr := AnsiString(value)
+    Repr := 'Ident: ' + AnsiString(value)
   else if IsNil() then
     Repr := 'NIL';
+end;
+
+constructor TEnvironment.Create(p: TEnvironment); begin
+  parent := p;
+  content := TContent.Create();
+end;
+
+function TEnvironment.Get(key: String): TValue;
+var
+  p: TEnvironment;
+  i: Integer;
+begin
+  Result := nil;
+  p := Self;
+  while p <> nil do begin
+    i := p.content.IndexOf(key);
+    if i <> (-1) then begin
+      Result := p.content.data[i];
+      break;
+    end;
+    p := p.parent;
+  end;
+end;
+
+procedure TEnvironment.AddOrSet(key: String; data: TValue);
+var
+  p: TEnvironment;
+  i: Integer;
+  found: Boolean;
+begin
+  p := Self;
+  found := false;
+  while p <> nil do begin
+    i := p.content.IndexOf(key);
+    if i <> (-1) then begin
+      found := true;
+      p.content.AddOrSetData(key, data);
+      break;
+    end;
+    p := p.parent;
+  end;
+  if not found then
+    content.AddOrSetData(key, data);
 end;
 
 function AddedTo(num, other: TValue): TValueResult; begin
@@ -234,7 +287,7 @@ function DivedBy(num, other: TValue): TValueResult; begin
 end;
 
 constructor TInterpreter.Create(); begin
-  variables := TVariables.Create();
+  env := TEnvironment.Create(nil);
 end;
 
 function TInterpreter.Visit(nd: TNode): TValueResult; begin
@@ -249,8 +302,6 @@ function TInterpreter.Visit(nd: TNode): TValueResult; begin
 end;
 
 function TInterpreter.Visit(nd: TValueNode): TValueResult;
-var
-  i: Integer;
 begin
   Result := Default(TValueResult);
   if nd.IsInt() then
@@ -260,12 +311,12 @@ begin
   else if nd.IsBool() then
     Result.value := TValue.CreateBool(nd.GetBool())
   else if nd.IsIdent() then begin
-    i := variables.IndexOf(nd.GetIdent());
-    if i = (-1) then begin
+    Result.value := env.Get(nd.GetIdent());
+    if Result.value = nil then begin
       Result.error := TRuntimeError.Create(nd.GetPosition(), Concat('Undefined variable ''', nd.GetIdent(), ''''));
+      Result.value := nil;
       Exit;
     end;
-    Result.value := variables.Data[i];
   end;
   Result.value.pos := nd.GetPosition();
 end;
@@ -298,7 +349,7 @@ begin
   Result := Visit(nd.value);
   if Result.error <> nil then Exit;
 
-  variables.AddOrSetData(nd.ident.GetIdent(), Result.value);
+  env.AddOrSet(nd.ident.GetIdent(), Result.value);
 end;
 function TInterpreter.Visit(nd: TUnaryOpNode): TValueResult; begin
   Result := Visit(nd.nd);
