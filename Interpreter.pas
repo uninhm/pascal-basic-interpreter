@@ -294,20 +294,11 @@ begin
     Result.value.pos := nd.op.GetPosition();
 end;
 function TInterpreter.Visit(nd: TAssignationNode): TValueResult;
-var
-  i: Integer;
 begin
   Result := Visit(nd.value);
   if Result.error <> nil then Exit;
 
-  i := variables.IndexOf(nd.ident.GetIdent());
-  if i <> (-1) then begin
-    Result.value := nil;
-    Result.error := TRuntimeError.Create(nd.ident.GetPosition(), 'Already used identifier');
-    Exit;
-  end;
-
-  variables.Add(nd.ident.GetIdent(), Result.value);
+  variables.AddOrSetData(nd.ident.GetIdent(), Result.value);
 end;
 function TInterpreter.Visit(nd: TUnaryOpNode): TValueResult; begin
   Result := Visit(nd.nd);
