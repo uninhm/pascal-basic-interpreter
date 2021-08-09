@@ -13,6 +13,7 @@ implementation
 
 function RunCode(text: string; intptr: TInterpreter): TValueResult;
 var
+  i: Integer;
   lxr: TLexer;
   lxr_rslt: TTokensResult;
   prsr: TParser;
@@ -27,6 +28,14 @@ begin
     Exit;
   end;
 
+  {
+  i := 1;
+  while lxr_rslt.tokens[i] <> nil do begin
+    WriteLn(lxr_rslt.tokens[i].Repr());
+    inc(i);
+  end;
+  }
+
   prsr := TParser.Create(lxr_rslt.tokens);
   prsr_rslt := prsr.Parse();
 
@@ -34,6 +43,8 @@ begin
     RunCode.error := prsr_rslt.error;
     Exit;
   end;
+
+  // WriteLn(prsr_rslt.node.Repr());
 
   RunCode := intptr.Visit(prsr_rslt.node);
 end;

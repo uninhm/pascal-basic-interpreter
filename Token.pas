@@ -9,7 +9,7 @@ uses
 
 type
   PReal = ^Real;
-  TTokenKind = (TT_INT, TT_BOOL, TT_FLOAT, TT_PLUS, TT_MINUS, TT_DIV, TT_MUL, TT_EQ, TT_LPAREN, TT_RPAREN, TT_IDENT, TT_KEYWORD, TT_EOF);
+  TTokenKind = (TT_INT, TT_BOOL, TT_FLOAT, TT_LPAREN, TT_RPAREN, TT_IDENT, TT_KEYWORD, TT_EOF);
   TTokenKindArray = array of TTokenKind;
 
   TToken = class
@@ -30,11 +30,6 @@ type
       function IsFloat(): Boolean;
       function IsKeyword(): Boolean;
       function IsIdent(): Boolean;
-      function IsPlus(): Boolean;
-      function IsMinus(): Boolean;
-      function IsMul(): Boolean;
-      function IsDiv(): Boolean;
-      function IsEq(): Boolean;
       function IsLParen(): Boolean;
       function IsRParen(): Boolean;
       function IsEOF(): Boolean;
@@ -100,21 +95,6 @@ function TToken.IsKeyword(): boolean; begin
 end;
 function TToken.IsIdent(): boolean; begin
   IsIdent := kind = TT_IDENT;
-end;
-function TToken.IsPlus(): Boolean; begin
-  IsPlus := kind = TT_PLUS
-end;
-function TToken.IsMinus(): Boolean; begin
-  IsMinus := kind = TT_MINUS;
-end;
-function TToken.IsMul(): Boolean; begin
-  IsMul := kind = TT_MUL;
-end;
-function TToken.IsDiv(): Boolean; begin
-  IsDiv := kind = TT_DIV;
-end;
-function TToken.IsEq(): Boolean; begin
-  IsEq := kind = TT_EQ;
 end;
 function TToken.IsLParen(): Boolean; begin
   IsLParen := kind = TT_LPAREN;
@@ -224,14 +204,10 @@ function TToken.Repr(): string; begin
      Repr := Concat('BOOL:', BoolToStr(GetBool(), 'true', 'false'))
   else if kind = TT_FLOAT then
      Repr := Concat('FLOAT:', FloatToStr(GetFloat()))
-  else if kind = TT_PLUS then
-     Repr := 'PLUS'
-  else if kind = TT_MINUS then
-     Repr := 'MINUS'
-  else if kind = TT_MUL then
-     Repr := 'MUL'
-  else if kind = TT_DIV then
-     Repr := 'DIV'
+  else if kind = TT_IDENT then
+     Repr := Concat('IDENT:', GetIdent())
+  else if kind = TT_EOF then
+     Repr := Concat('EOF')
   else if kind = TT_LPAREN then
      Repr := 'LPAREN'
   else if kind = TT_RPAREN then

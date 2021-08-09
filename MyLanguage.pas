@@ -62,11 +62,13 @@ begin
     end;
   end;
 
-  {res := RunCode('var hola = 5');
+  {
+  res := RunCode('(+ 1 2 3)', intptr);
   if res.error <> nil then
     WriteLn(res.error.AsStr())
   else
-    WriteLn(res.value.Repr());}
+    WriteLn(res.value.Repr());
+  }
 
   // stop program loop
   Terminate;

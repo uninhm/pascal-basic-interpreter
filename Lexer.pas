@@ -8,7 +8,7 @@ uses
   Classes, SysUtils, Position, Token, LangErrors;
 
 const
-  KEYWORDS: array[0..1] of string = ('var', 'exit');
+  KEYWORDS: array[0..1] of string = ('def', 'exit');
 
 type
   TLexer = class
@@ -31,12 +31,24 @@ function IsLetter(c: Char): Boolean; begin
   Result := (('a' <= c) and (c <= 'z')) or (('A' <= c) and (c <= 'Z'));
 end;
 
-function IsDigit(c: Char): Boolean; begin
+function IsDigit(c: Char): Boolean;
+begin
   Result := ('0' <= c) and (c <= '9');
 end;
 
+function IsSymbol(c: Char): Boolean;
+var
+  s: String;
+  x: Char;
+begin
+  Result := false;
+  s := '+-*/''<>=_?';
+  for x in s do
+    Result := Result or (c = x);
+end;
+
 function IsAlphanumeric(c: PChar): Boolean; begin
-  Result := IsLetter(c^) or IsDigit(c^) or (c^ = '_');
+  Result := IsLetter(c^) or IsSymbol(c^) or IsDigit(c^);
 end;
 
 constructor TLexer.Create(s: AnsiString; filename: ShortString); begin
@@ -85,16 +97,11 @@ begin
         inc(i);
         continue;
       end;
-      'a' .. 'z', 'A' .. 'Z': begin
+      'a' .. 'z', 'A' .. 'Z', '+', '-', '*', '/', '''', '<' .. '?': begin
         makeTokens.tokens[i] := MakeIdent();
         inc(i);
         continue;
       end;
-      '+': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_PLUS);
-      '-': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MINUS);
-      '*': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_MUL);
-      '/': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_DIV);
-      '=': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_EQ);
       '(': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_LPAREN);
       ')': makeTokens.tokens[i] := TToken.Create(pos.Copy(), TT_RPAREN);
       else begin

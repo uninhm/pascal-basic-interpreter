@@ -64,9 +64,8 @@ type
       constructor Create();
       function Visit(nd: TNode): TValueResult;
       function Visit(nd: TValueNode): TValueResult;
-      function Visit(nd: TBinOpNode): TValueResult;
       function Visit(nd: TAssignationNode): TValueResult;
-      function Visit(nd: TUnaryOpNode): TValueResult;
+      function Visit(nd: TOpNode): TValueResult;
   end;
 
 implementation
@@ -293,12 +292,10 @@ end;
 function TInterpreter.Visit(nd: TNode): TValueResult; begin
   if nd.ClassType.InheritsFrom(TValueNode) then
     Result := Visit(TValueNode(nd))
-  else if nd.ClassType.InheritsFrom(TBinOpNode) then
-    Result := Visit(TBinOpNode(nd))
   else if nd.ClassType.InheritsFrom(TAssignationNode) then
     Result := Visit(TAssignationNode(nd))
-  else if nd.ClassType.InheritsFrom(TUnaryOpNode) then
-    Result := Visit(TUnaryOpNode(nd));
+  else if nd.ClassType.InheritsFrom(TOpNode) then
+    Result := Visit(TOpNode(nd));
 end;
 
 function TInterpreter.Visit(nd: TValueNode): TValueResult;
@@ -311,39 +308,20 @@ begin
   else if nd.IsBool() then
     Result.value := TValue.CreateBool(nd.GetBool())
   else if nd.IsIdent() then begin
+    if nd.GetIdent() = '+' then
+      Result.value := TValue.CreateIdent('+')
+    else begin
     Result.value := env.Get(nd.GetIdent());
     if Result.value = nil then begin
       Result.error := TRuntimeError.Create(nd.GetPosition(), Concat('Undefined variable ''', nd.GetIdent(), ''''));
       Result.value := nil;
       Exit;
     end;
+    end;
   end;
   Result.value.pos := nd.GetPosition();
 end;
 
-function TInterpreter.Visit(nd: TBinOpNode): TValueResult;
-var
-  left, right: TValueResult;
-begin
-  left := Visit(nd.left);
-  if left.error <> nil then begin
-    Result := left; Exit;
-  end;
-  right := Visit(nd.right);
-  if right.error <> nil then begin
-    Result := right; Exit;
-  end;
-  if nd.op.IsPlus() then
-    Result := AddedTo(left.value, right.value)
-  else if nd.op.IsMinus() then
-    Result := SubbedBy(left.value, right.value)
-  else if nd.op.IsMul() then
-    Result := MultedBy(left.value, right.value)
-  else if nd.op.IsDiv() then
-    Result := DivedBy(left.value, right.value);
-  if Result.error = nil then
-    Result.value.pos := nd.op.GetPosition();
-end;
 function TInterpreter.Visit(nd: TAssignationNode): TValueResult;
 begin
   Result := Visit(nd.value);
@@ -351,18 +329,29 @@ begin
 
   env.AddOrSet(nd.ident.GetIdent(), Result.value);
 end;
-function TInterpreter.Visit(nd: TUnaryOpNode): TValueResult; begin
-  Result := Visit(nd.nd);
+function TInterpreter.Visit(nd: TOpNode): TValueResult;
+var
+  x: TNode;
+  op: TValue;
+  res: TValueResult;
+begin
+  Result := Visit(nd.op);
   if Result.error <> nil then Exit;
+  op := Result.value;
 
-  if nd.op.IsMinus() then begin
-    if Result.value.IsInt() then
-       Result := MultedBy(Result.value, TValue.CreateInt(-1))
-    else if Result.value.IsFloat() then
-       Result := MultedBy(Result.value, TValue.CreateFloat(-1));
+  if op.GetIdent() = '+' then begin
+    res := Default(TValueResult);
+    res.value := TValue.CreateInt(0);
+    for x in nd.operands do begin
+      if x = nil then break;
+      Result := Visit(x);
+      if Result.error <> nil then Exit;
+      res.value.SetInt(res.value.GetInt() + Result.value.GetInt());
+    end;
+    Result := res;
   end;
   if Result.error = nil then
-    Result.value.pos := nd.op.GetPosition();
+    Result.value.pos := op.GetPosition();
 end;
 end.
 
